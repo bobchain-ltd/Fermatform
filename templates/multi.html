@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Multi Model Dynamic Form</title>
+    <title>Fermat Daily Checkin Form</title>
 </head>
 <body>
 
@@ -36,8 +36,29 @@
         </table>
     </div>
 
-    
-    
+    {{ form.evaluation.label }}: {{form.evaluation()}}
+
+    <div data-toggle="fieldset" id="plan-fieldset">
+         {{ "Plans I have for today and need for cooperation" }}  <button type="button" data-toggle="fieldset-add-row"
+                                          data-target="#plan-fieldset">+</button>
+        <table>
+            <tr>
+                <th>Planned task</th>
+                <th>Persons to communicate with</th>
+                <th></th>
+            </tr>
+            {% for plan in form.plans %}
+                <tr data-toggle="fieldset-entry">
+                    <td>{{ plan.plan_name }}</td>
+                    <td>{{ plan.contacts }}</td>
+                    <td><button type="button" data-toggle="fieldset-remove-row" id="phone-{{loop.index0}}-remove">-</button></td>
+                </tr>
+            {% endfor %}
+        </table>
+    </div>
+
+
+
     {{ form.hidden_tag() }}
     {{ form.submit }}
 
