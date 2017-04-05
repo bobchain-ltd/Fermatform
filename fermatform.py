@@ -48,7 +48,7 @@ class CombinedForm(FlaskForm):
     dev_name = StringField('My name / nick', validators=[DataRequired()])
     tasks = FieldList(FormField(TaskForm, default=lambda: Task()))
     
-    evaluation = SelectField('Self evaluation', choices = [(o, o) for o in OPTIONS.keys()], default="OK" validators = [DataRequired()])
+    evaluation = SelectField('Self evaluation', choices = [(o, o) for o in OPTIONS.keys()], default="OK", validators = [DataRequired()])
 
     plans = FieldList(FormField(PlanForm, default=lambda: Plan()))
 
