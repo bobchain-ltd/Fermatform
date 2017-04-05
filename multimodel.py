@@ -48,7 +48,7 @@ class CombinedForm(FlaskForm):
     dev_name = StringField('My name / nick', validators=[DataRequired()])
     tasks = FieldList(FormField(TaskForm, default=lambda: Task()))
     
-    evaluation = SelectField('Self evaluation', choices = [(o, o) for o in OPTIONS.keys()] , validators = [DataRequired()])
+    evaluation = SelectField('Self evaluation', choices = [(o, o) for o in OPTIONS.keys()], default="OK" validators = [DataRequired()])
 
     plans = FieldList(FormField(PlanForm, default=lambda: Plan()))
 
@@ -70,22 +70,33 @@ def save_done_tasks(form):
 
 def save_discussion_requests(form):
     discussion_requests = wks.worksheet("Discussion requests")
-    for req in form.contacts.data:
+    planned_tasks = wks.worksheet("Planned tasks")
+
+    for req in form.plans.data:
+
+        row=[CURRENT_DATE,form.dev_name.data,req["plan_name"]]
+        planned_tasks.append_row(row)
+
         if "," in req["contacts"]: 
             splitted=req["contacts"].split(",")
         elif " " in req["contacts"]:
             splitted=req["contacts"].split(" ")
         else:
-            splitted=req
+            splitted=req["contacts"]
 
-        for individual in splitted:
-            row=[CURRENT_DATE,form.dev_name.data,req.plan_name.data,individual]
+        if isinstance(splitted, basestring) and splitted!="":
+            row=[CURRENT_DATE,form.dev_name.data,req["plan_name"],splitted.replace(" ", "")]
             discussion_requests.append_row(row)
+        else:
+            for individual in splitted:
+                row=[CURRENT_DATE,form.dev_name.data,req["plan_name"],individual.replace(" ", "")]
+                discussion_requests.append_row(row)
     return
 
 def save_to_google(form):
-    #save_the_day(form)
-    #save_done_tasks(form)
+    save_the_day(form)
+    save_done_tasks(form)
+    save_plans_and_discussion_requests(form)
     return
 
 @app.route('/thanks', methods=['GET',])
