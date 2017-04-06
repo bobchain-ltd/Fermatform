@@ -12,34 +12,35 @@
     {% endfor %}
 </div>
 
-<h2>Daily checkin form</h2>
+<h2 class="title">Daily checkin form</h2>
 
-<form method="POST">
-    {{ form.dev_name.label }}: {{ form.dev_name }}
+<form class="form-class" method="POST">
+    <div class="input-container">
+    {{ form.dev_name.label(class="dev-label") }} {{ form.dev_name(class="dev-input") }}
 
     <div data-toggle="fieldset" id="task-fieldset">
-         {{ "Tasks I have worked on yesterday" }}  <button type="button" data-toggle="fieldset-add-row"
+         <div class="task-table-title"><b>Tasks I have worked on yesterday</b></div>  <button type="button" class="btn btn-default" data-toggle="fieldset-add-row"
                                           data-target="#task-fieldset">+</button>
-        <table>
+        <table class="input-table">
             <tr>
-                <th>Task</th>
-                <th>Duration</th>
+                <th class="task-table-col1">Task</th>
+                <th class="task-table-col2">Duration</th>
                 <th></th>
             </tr>
             {% for task in form.tasks %}
                 <tr data-toggle="fieldset-entry">
-                    <td>{{ task.task_name }}</td>
-                    <td>{{ task.duration }}</td>
-                    <td><button type="button" data-toggle="fieldset-remove-row" id="phone-{{loop.index0}}-remove">-</button></td>
+                    <td>{{ task.task_name(class="task-table-col1") }}</td>
+                    <td>{{ task.duration(class="task-table-col2") }}</td>
+                    <td><button type="button" class="btn btn-default" data-toggle="fieldset-remove-row" id="phone-{{loop.index0}}-remove">-</button></td>
                 </tr>
             {% endfor %}
         </table>
     </div>
 
-    {{ form.evaluation.label }}: {{form.evaluation()}}
+    {{ form.evaluation.label(class="eval-label") }}: {{form.evaluation(class="eval-input")}}
 
     <div data-toggle="fieldset" id="plan-fieldset">
-         {{ "Plans I have for today and need for cooperation" }}  <button type="button" data-toggle="fieldset-add-row"
+         {{ "Plans I have for today and need for cooperation" }}  <button type="button" class="btn btn-default" data-toggle="fieldset-add-row"
                                           data-target="#plan-fieldset">+</button>
         <table>
             <tr>
@@ -51,7 +52,7 @@
                 <tr data-toggle="fieldset-entry">
                     <td>{{ plan.plan_name }}</td>
                     <td>{{ plan.contacts }}</td>
-                    <td><button type="button" data-toggle="fieldset-remove-row" id="phone-{{loop.index0}}-remove">-</button></td>
+                    <td><button type="button" class="btn btn-default" data-toggle="fieldset-remove-row" id="phone-{{loop.index0}}-remove">-</button></td>
                 </tr>
             {% endfor %}
         </table>
@@ -60,8 +61,8 @@
 
 
     {{ form.hidden_tag() }}
-    {{ form.submit }}
-
+    {{ form.submit(class="btn btn-success") }}
+    </div>
 {# <h5> <a href="{{ url_for('index') }}">Home</a> </h5> #}
 
 <!-- just to display all potential errors -->
@@ -79,6 +80,23 @@
 
 <script src="https://code.jquery.com/jquery-2.1.4.js"></script>
 <script src="{{ url_for("static", filename="js/page.js") }}"></script>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+<style>
+.title {padding-left: 15%; margin-bottom: 2%}
+.input-container {padding-left: 15%; max-width: 650px}
+.dev-label {padding-right: 1%; margin-bottom: 8%}
+.dev-input {width: 35%}
+.input-tabel {table-layout: fixed}
+.btn-success {float: right; margin-top: 3%; margin-right: 4.5% }
+.btn-default {float: right; margin-right: 5%}
+.eval-label {margin-bottom: 8%; margin-top: 8%}
+.eval-input {width: 40%; margin-left: 10%;}
+.task-table-col1 {width: 80%}
+.task-table-col2 {margin-left: 20%; width: 30%}
+.task-table-title {margin-bottom: 3%}
+
+</style>
 
 </body>
 </html>
