@@ -133,6 +133,6 @@ if __name__ == '__main__':
 
     gc = gspread.authorize(credentials)
 
-    wks = gc.open("Copy of Checkins")
+    wks = gc.open("Checkins")
 
     app.run(debug=True)#, port=5000)
