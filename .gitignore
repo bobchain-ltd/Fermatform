@@ -2,3 +2,4 @@
 *.auth
 *.key
 *.name
+*.unneeded

@@ -14,6 +14,9 @@ from itsdangerous import Signer
 with open('signer.key', 'r') as f:
     SECRET_KEY = f.read().rstrip()
 
+with open('slack_call.key', 'r') as f:
+    SLACK_CALL_TOKEN = unicode(f.read().rstrip())
+    
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
@@ -22,19 +25,19 @@ YESTERDAY = (date.today()-timedelta(1)).strftime('%m-%d-%Y')
 
 OPTIONS = [(1,"Very bad"),(2,"No good"),(3,"OK"),(4,"Above expected"),(5,"Supercool")]
 
-def get_slack_user_choices():
-    with open('slack.auth', 'r') as f:
-        token = f.read().rstrip()
-    sc = SlackClient(token)
-
-    slack_users = sc.api_call("users.list")
-    slack_usernames = [u["name"] for u in slack_users["members"]]
-    global slack_usernames_choices
-    slack_usernames_choices = []
-    for s in range(len(slack_usernames)):
-        slack_usernames_choices.append((s,slack_usernames[s]))
-    #print slack_usernames_choices
-    return slack_usernames_choices
+#def get_slack_user_choices():
+#    with open('slack.auth', 'r') as f:
+#        SLACK_AUTH_TOKEN = f.read().rstrip()
+#    sc = SlackClient(SLACK_AUTH_TOKEN)
+#
+#    slack_users = sc.api_call("users.list")
+#    slack_usernames = [u["name"] for u in slack_users["members"]]
+#    global slack_usernames_choices
+#    slack_usernames_choices = []
+#    for s in range(len(slack_usernames)):
+#        slack_usernames_choices.append((s,slack_usernames[s]))
+#    #print slack_usernames_choices
+#    return slack_usernames_choices
 
 def sign_string(instring):
     s = Signer(SECRET_KEY)
@@ -164,11 +167,14 @@ def index():
 
     return render_template('multi.html', form=form)
 
-@app.route('/checkin', methods=['POST'])
+@app.route('/checkin', methods=['GET','POST'])
 def slack_checkin():
+    #print request.form
+    #print request.url_root
+    if request.method!="POST" or request.form.getlist("token")[0]!=SLACK_CALL_TOKEN:
+        return redirect(url_for('unauthorized')) 
+    
     slack_user_id = request.form.getlist("user_id")[0]
-#    print request.form
-#    print request.url_root
     slack_username = request.form.getlist("user_name")[0]
     link = request.url_root+"?user="+sign_string(slack_username)
 
@@ -195,8 +201,8 @@ if __name__ == '__main__':
     credentials = ServiceAccountCredentials.from_json_keyfile_name('google_credentials.json', scope)
     gc = gspread.authorize(credentials)
     with open('google_spreadsheet.name', 'r') as f:
-        spreadsheet = f.read().rstrip()
+        SPREADSHEET = f.read().rstrip()
 
-    wks = gc.open(spreadsheet)
+    wks = gc.open(SPREADSHEET)
 
     app.run(debug=False)
