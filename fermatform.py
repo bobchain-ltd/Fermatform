@@ -17,7 +17,7 @@ app.secret_key = SECRET_KEY
 CURRENT_DATE = date.today().strftime('%m-%d-%Y')
 YESTERDAY = (date.today()-timedelta(1)).strftime('%m-%d-%Y')
 
-OPTIONS = {"Very bad":-2,"No good":-1,"OK":0,"Above expected":1,"Supercool":2}
+OPTIONS = [(1,"Very bad"),(2,"No good"),(3,"OK"),(4,"Above expected"),(5,"Supercool")]
 
 class Checkin():
     dev_name = ""
@@ -48,7 +48,7 @@ class CombinedForm(FlaskForm):
     dev_name = StringField('My name / nick', validators=[DataRequired()])
     tasks = FieldList(FormField(TaskForm, default=lambda: Task()))
     
-    evaluation = SelectField('Self evaluation', choices = [(o, o) for o in OPTIONS.keys()], default="OK", validators = [DataRequired()])
+    evaluation = SelectField('Self evaluation', coerce=int, choices = [(1,"Very bad"),(2,"No good"),(3,"OK"),(4,"Above expected"),(5,"Supercool")], default=3, validators = [DataRequired()])
 
     plans = FieldList(FormField(PlanForm, default=lambda: Plan()))
 
@@ -56,7 +56,7 @@ class CombinedForm(FlaskForm):
 
 def save_the_day(form):
     days = wks.worksheet("Days")
-    row=[YESTERDAY,form.dev_name.data,OPTIONS[form.evaluation.data]]
+    row=[YESTERDAY,form.dev_name.data,form.evaluation.data]
     days.append_row(row)
     return
 
@@ -114,10 +114,10 @@ def index():
         checkin.plans = [Plan()]
 
     form = CombinedForm(obj=checkin)
-
+    form.evaluation.default=1
+    
     if form.validate_on_submit():
         form.populate_obj(checkin)
-
         save_to_google(form)
 
         return redirect(url_for('thanks'))

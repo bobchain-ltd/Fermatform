@@ -12,46 +12,47 @@
     {% endfor %}
 </div>
 
-<h2>Daily checkin form</h2>
+<h2 class="title">Daily checkin form</h2>
 
-<form method="POST">
-    {{ form.dev_name.label }}: {{ form.dev_name }}
+<form class="form-class" method="POST">
+    <div class="input-container">
+    {{ form.dev_name.label(class="dev-label") }} {{ form.dev_name(class="dev-input") }}
 
     <div data-toggle="fieldset" id="task-fieldset">
-         {{ "Tasks I have worked on yesterday" }}  <button type="button" data-toggle="fieldset-add-row"
-                                          data-target="#task-fieldset">+</button>
-        <table>
+         <div class="task-table-title"><b>Tasks I have worked on yesterday</b>  <button type="button" class="btn btn-default task-add" data-toggle="fieldset-add-row"
+                                          data-target="#task-fieldset">+</button></div>
+        <table class="task-input-table">
             <tr>
-                <th>Task</th>
-                <th>Duration</th>
+                <th class="task-table-col1">Task</th>
+                <th class="task-table-col2">Duration</th>
                 <th></th>
             </tr>
             {% for task in form.tasks %}
                 <tr data-toggle="fieldset-entry">
-                    <td>{{ task.task_name }}</td>
-                    <td>{{ task.duration }}</td>
-                    <td><button type="button" data-toggle="fieldset-remove-row" id="phone-{{loop.index0}}-remove">-</button></td>
+                    <td class="task-table-col1">{{ task.task_name(class="task-table-col1") }}</td>
+                    <td class="task-table-col2">{{ task.duration(class="task-table-col2") }}</td>
+                    <td class="task-table-col3"><button type="button" class="btn btn-default task-remove" data-toggle="fieldset-remove-row" id="phone-{{loop.index0}}-remove">-</button></td>
                 </tr>
             {% endfor %}
         </table>
     </div>
 
-    {{ form.evaluation.label }}: {{form.evaluation()}}
+    {{ form.evaluation.label(class="eval-label") }}: {{form.evaluation(class="eval-input")}}
 
     <div data-toggle="fieldset" id="plan-fieldset">
-         {{ "Plans I have for today and need for cooperation" }}  <button type="button" data-toggle="fieldset-add-row"
-                                          data-target="#plan-fieldset">+</button>
-        <table>
+         <div class="plan-table-title"><b>Plans I have for today and need for cooperation</b>  <button type="button" class="btn btn-default plan-add" data-toggle="fieldset-add-row"
+                                          data-target="#plan-fieldset">+</button></div>
+        <table class="plan-input-table">
             <tr>
-                <th>Planned task</th>
-                <th>Persons to communicate with</th>
+                <th class="plan-table-col1">Planned task</th>
+                <th class="plan-table-col2">Persons to talk to</th>
                 <th></th>
             </tr>
             {% for plan in form.plans %}
                 <tr data-toggle="fieldset-entry">
-                    <td>{{ plan.plan_name }}</td>
-                    <td>{{ plan.contacts }}</td>
-                    <td><button type="button" data-toggle="fieldset-remove-row" id="phone-{{loop.index0}}-remove">-</button></td>
+                    <td class="plan-table-col1">{{ plan.plan_name(class="plan-table-col1") }}</td>
+                    <td class="plan-table-col2">{{ plan.contacts(class="plan-table-col2") }}</td>
+                    <td class="plan-table-col3"><button type="button" class="btn btn-default plan-remove" data-toggle="fieldset-remove-row" id="phone-{{loop.index0}}-remove">-</button></td>
                 </tr>
             {% endfor %}
         </table>
@@ -60,8 +61,8 @@
 
 
     {{ form.hidden_tag() }}
-    {{ form.submit }}
-
+    {{ form.submit(class="btn btn-success") }}
+    </div>
 {# <h5> <a href="{{ url_for('index') }}">Home</a> </h5> #}
 
 <!-- just to display all potential errors -->
@@ -79,6 +80,35 @@
 
 <script src="https://code.jquery.com/jquery-2.1.4.js"></script>
 <script src="{{ url_for("static", filename="js/page.js") }}"></script>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+<style>
+.title {padding-left: 15%; margin-bottom: 2%}
+
+.input-container {padding-left: 15%; max-width: 750px}
+.dev-label {padding-right: 1%; margin-bottom: 8%}
+.dev-input {width: 35%}
+
+.task-input-tabel {table-layout: fixed}
+.task-table-title {margin-bottom: 3%;}
+.task-table-col1 {width: 80%;}
+.task-table-col2 {margin-left: 1%; width: 60%;}
+.task-table-col3{float: right;  margin-bottom: 3%; position: relative; right: 0%; width: 0px}
+.btn-default.task-add{float: right; margin-right: 5%; margin-bottom: 3%}
+
+.eval-label {margin-bottom: 8%; margin-top: 8%}
+.eval-input {width: 40%; margin-left: 10%;}
+
+.plan-input-tabel {table-layout: fixed;}
+.plan-table-title {margin-bottom: 3%;}
+.btn-default.plan-add{float: right; margin-right: 5%; margin-bottom: 3%}
+.plan-table-col1{width: 90%; margin-right: 0px}
+.plan-table-col2{width: 155px; margin-right: 20px}
+.plan-table-col3{float: right;  margin-bottom: 3%; margin-left:1%; position: relative; right: 0%; width: 0px}
+
+.btn-success {float: right; margin-top: 3%; margin-right: 5%;}
+
+</style>
 
 </body>
 </html>
