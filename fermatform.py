@@ -32,12 +32,17 @@ scope = ['https://spreadsheets.google.com/feeds']
 
 credentials = ServiceAccountCredentials.from_json_keyfile_name('google_credentials.json', scope)
 gc = gspread.authorize(credentials)
+
 with open('google_spreadsheet.name', 'r') as f:
     SPREADSHEET = f.read().rstrip()
 
 wks = gc.open(SPREADSHEET)
 
 sc = SlackClient(SLACK_AUTH_TOKEN)   
+
+with open('slack_target_channel.name', 'r') as f:
+    SLACK_TARGET_CHANNEL = f.read().rstrip()
+
 
 def get_slack_user_choices():
 
@@ -137,6 +142,110 @@ def save_to_google(form):
     save_plans_and_discussion_requests(form)
     return
 
+def post_checkin_to_channel(form):
+    slack_users = sc.api_call("users.list")
+    #print slack_users["members"][0]['name']
+    #print form.dev_name.data
+    
+    slack_user = (item for item in slack_users["members"] if item["name"] == form.dev_name.data).next()
+    #print slack_user["profile"]["image_24"]
+    feeling = (item for item in OPTIONS if item[0] == form.evaluation.data).next()
+    print form.evaluation.data
+    if form.evaluation.data == 1:
+        feeling_color = "danger"
+    elif form.evaluation.data == 2:
+        feeling_color = "warning"
+    elif form.evaluation.data > 3:
+        feeling_color = "#439FE0"
+    else:
+        feeling_color = "good"
+
+    final_text = " \n --- \n"
+
+    tasks_value = ""#"Task name:"# \t\t Duration:\n" 
+    duration_value = ""
+
+    for task in form.tasks.data:
+        tasks_value = tasks_value + task["task_name"] + "\n"#+ "\t      " + str(task["duration"])+ "\n"
+        duration_value = duration_value + str(task["duration"]) + "\n"
+    tasks_value+="\n"
+    duration_value+="\n"
+    plans_value = ""#"Planned task:"
+
+    for req in form.plans.data:
+        plans_value = plans_value + req["plan_name"] + "\n"
+
+    sc.api_call(
+      "chat.postMessage",
+      channel="#"+SLACK_TARGET_CHANNEL,
+      #parse="full",
+      #text=final_text,
+      
+      attachments= [
+        {
+            "title": "Daily Checkin",
+            #"title_link": "http://google.com",
+            "author_name": slack_user["profile"]["first_name"]+" "+slack_user["profile"]["last_name"]+" @"+slack_user["name"],
+            "author_icon": slack_user["profile"]["image_24"],
+            "color": "good",
+            "text": final_text,
+            "fields": [
+                {
+                    "title": "Tasks done yesterday:",
+                    "value": tasks_value,
+                    "short": True
+                },
+{
+                    "title": "Duration (hours):",
+                    "value": duration_value,
+                    "short": True
+                },
+                ],
+        },
+
+{
+            "color": feeling_color,
+            "fields": [
+                {
+                    "title": "Feeling of success:",
+                    "value": feeling[1],
+                    "short": False
+                },
+                ],
+                #"thumb_url": slack_user["profile"]["image_24"],
+        },
+        {
+            "color": "good",
+            "fields": [
+                {
+                    "title": "Tasks planned for today:",
+                    "value": plans_value,
+                    "short": False
+                }
+                ],
+                "footer": "Fermat.org",
+                "footer_icon": "http://www.fermat.org/wp-content/uploads/2016/05/cropped-lcono_fermat_512x512.png"
+        },
+
+        ]) 
+    return
+
+def create_channel_discussions(form):
+    #https://api.slack.com/methods/channels.create
+    # let slack modify the channel name
+
+    #https://api.slack.com/methods/channels.join
+    #https://api.slack.com/methods/channels.invite
+    #https://api.slack.com/methods/channels.setPurpose
+    #https://api.slack.com/methods/channels.setTopic
+    #notify users about /archive in the topic desctiption
+    return
+
+def post_to_slack(form):
+    post_checkin_to_channel(form)
+    create_channel_discussions(form)
+    return
+
 @app.route('/thanks', methods=['GET',])
 def thanks():
     return render_template('thanks.html')
@@ -170,6 +279,7 @@ def index():
         if checkin.dev_name!=user:
             return redirect(url_for('unauthorized'))
         save_to_google(form)
+        post_to_slack(form)
 
         return redirect(url_for('thanks'))
 
@@ -200,7 +310,7 @@ def slack_checkin():
         }
                     ]
     }
-    return jsonify(resp)#Markup('Hello bello @%s!') % slack_username
+    return jsonify(resp)
 
 if __name__ == '__main__':
 

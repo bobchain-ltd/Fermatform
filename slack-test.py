@@ -20,6 +20,7 @@ for u in users["members"]:
 	if u["name"]=="lev":
 		targetuser = u
 	print u["name"]
+	print u["id"]
 	print " "
 
 
@@ -27,7 +28,7 @@ ims = sc.api_call(
 	"im.list"
 )
 
-#print ims
+print ims
 #print " "
 #print " "
 
@@ -36,6 +37,18 @@ for im in ims["ims"]:
 		im_id = im["id"]
 		#print im["id"]
 		#print " "
+
+szergely = "U48LR3PCZ"
+lev = "U4ABEDA83"
+
+quit()
+
+result = sc.api_call(
+  "im.open",
+  user=lev,
+  text="Hello from Python! :tada:",
+)
+print result
 
 sc.api_call(
   "chat.postMessage",
