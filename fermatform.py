@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from flask import Flask, render_template, flash, redirect, url_for
+from flask import Flask, render_template, flash, redirect, url_for, request, Markup, jsonify
 from flask_wtf import FlaskForm
 from wtforms import FieldList
 from wtforms import Form as NoCsrfForm
@@ -9,8 +9,10 @@ from datetime import date, timedelta
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from slackclient import SlackClient
+from itsdangerous import Signer
 
-SECRET_KEY = 'a really not so random string'
+with open('signer.key', 'r') as f:
+    SECRET_KEY = f.read().rstrip()
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -31,8 +33,20 @@ def get_slack_user_choices():
     slack_usernames_choices = []
     for s in range(len(slack_usernames)):
         slack_usernames_choices.append((s,slack_usernames[s]))
-    print slack_usernames_choices
+    #print slack_usernames_choices
     return slack_usernames_choices
+
+def sign_string(instring):
+    s = Signer(SECRET_KEY)
+    signed_string = s.sign(instring)
+    return signed_string
+
+def unsign_string(instring):
+    s = Signer(SECRET_KEY)
+    try:
+        return s.unsign(instring) 
+    except:
+        return False
 
 class Checkin():
     dev_name = ""
@@ -60,8 +74,8 @@ class PlanForm(NoCsrfForm):
 
 
 class CombinedForm(FlaskForm):
-    #dev_name = StringField('My name / nick', validators=[DataRequired()])
-    dev_name = SelectField('My name / nick', choices=get_slack_user_choices(), validators = [DataRequired()])
+    dev_name = StringField('My name / nick', validators=[DataRequired()])
+    #dev_name = SelectField('My name / nick', choices=get_slack_user_choices(), validators = [DataRequired()])
 
     tasks = FieldList(FormField(TaskForm, default=lambda: Task()))
     
@@ -85,7 +99,7 @@ def save_done_tasks(form):
         done_tasks.append_row(row)
     return
 
-def save_discussion_requests(form):
+def save_plans_and_discussion_requests(form):
     discussion_requests = wks.worksheet("Discussion requests")
     planned_tasks = wks.worksheet("Planned tasks")
 
@@ -120,9 +134,18 @@ def save_to_google(form):
 def thanks():
     return render_template('thanks.html')
 
+@app.route('/unauthorized', methods=['GET',])
+def unauthorized():
+    return render_template('unauthorized.html')
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
+    user = unsign_string(request.args.get('user'))
+    if user == False:
+        return redirect(url_for('unauthorized'))
+
     checkin = Checkin()
+    checkin.dev_name = user
 
     # if User has no tasks, provide an empty one so table is rendered
     if len(checkin.tasks) == 0:
@@ -141,13 +164,39 @@ def index():
 
     return render_template('multi.html', form=form)
 
+@app.route('/checkin', methods=['POST'])
+def slack_checkin():
+    slack_user_id = request.form.getlist("user_id")[0]
+#    print request.form
+#    print request.url_root
+    slack_username = request.form.getlist("user_name")[0]
+    link = request.url_root+"?user="+sign_string(slack_username)
+
+    resp = {
+    "response_type": "ephemeral",
+    "text": "You can do your checkin under the link",
+    "attachments": [
+        {
+            "title": "Daily Checkin",
+            "title_link": link,
+            "author_name": "Fermat.org",
+            "author_icon": "http://www.fermat.org/wp-content/uploads/2016/05/cropped-lcono_fermat_512x512-32x32.png",
+            "color": "good"
+
+        }
+                    ]
+    }
+    return jsonify(resp)#Markup('Hello bello @%s!') % slack_username
 
 if __name__ == '__main__':
 
     scope = ['https://spreadsheets.google.com/feeds']
 
-    credentials = ServiceAccountCredentials.from_json_keyfile_name('f.json', scope)
+    credentials = ServiceAccountCredentials.from_json_keyfile_name('google_credentials.json', scope)
     gc = gspread.authorize(credentials)
-    wks = gc.open("Checkins")
+    with open('google_spreadsheet.name', 'r') as f:
+        spreadsheet = f.read().rstrip()
 
-    app.run(debug=True)#, port=5000)
+    wks = gc.open(spreadsheet)
+
+    app.run(debug=False)

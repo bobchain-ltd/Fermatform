@@ -16,7 +16,7 @@
 
 <form class="form-class" method="POST">
     <div class="input-container">
-    {{ form.dev_name.label(class="dev-label") }} {{ form.dev_name(class="dev-input") }}
+    {{ form.dev_name.label(class="dev-label") }} {{ form.dev_name(class="dev-input", readonly=True) }}
 
     <div data-toggle="fieldset" id="task-fieldset">
          <div class="task-table-title"><b>Tasks I have worked on yesterday</b>  <button type="button" class="btn btn-default task-add" data-toggle="fieldset-add-row"
