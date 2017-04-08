@@ -143,6 +143,8 @@ def unauthorized():
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
+
+
     user = unsign_string(request.args.get('user'))
     if user == False:
         return redirect(url_for('unauthorized'))
@@ -161,6 +163,8 @@ def index():
     
     if form.validate_on_submit():
         form.populate_obj(checkin)
+        if checkin.dev_name!=user:
+            return redirect(url_for('unauthorized'))
         save_to_google(form)
 
         return redirect(url_for('thanks'))
