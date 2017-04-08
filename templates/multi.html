@@ -3,6 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <title>Fermat Daily Checkin Form</title>
+
+    <script src="https://code.jquery.com/jquery-2.1.4.js"></script>
+    <script src="{{ url_for("static", filename="js/page.js") }}"></script>
+<!--    <script src="{{ url_for("static", filename="js/chosen.jquery.min.js") }}"></script>
+-->
 </head>
 <body>
 
@@ -24,7 +29,7 @@
         <table class="task-input-table">
             <tr>
                 <th class="task-table-col1">Task</th>
-                <th class="task-table-col2">Duration</th>
+                <th class="task-table-col2">Duration (hour)</th>
                 <th></th>
             </tr>
             {% for task in form.tasks %}
@@ -51,7 +56,7 @@
             {% for plan in form.plans %}
                 <tr data-toggle="fieldset-entry">
                     <td class="plan-table-col1">{{ plan.plan_name(class="plan-table-col1") }}</td>
-                    <td class="plan-table-col2">{{ plan.contacts(class="plan-table-col2") }}</td>
+                    <td class="plan-table-col2">{{ plan.contacts(class="plan-table-col2-select") }}</td>
                     <td class="plan-table-col3"><button type="button" class="btn btn-default plan-remove" data-toggle="fieldset-remove-row" id="phone-{{loop.index0}}-remove">-</button></td>
                 </tr>
             {% endfor %}
@@ -78,21 +83,40 @@
 
 </form>
 
-<script src="https://code.jquery.com/jquery-2.1.4.js"></script>
-<script src="{{ url_for("static", filename="js/page.js") }}"></script>
+
+<!-- 
+<script type="text/javascript">
+
+window.onload = function() {
+    if (window.jQuery) {  
+        // jQuery is loaded  
+        alert("Yeah!");
+    } else {
+        // jQuery is not loaded
+        alert("Doesn't Work");
+    }
+}
+</script>>
+
+<script type="text/javascript">
+jQuery(document).ready(function($){
+$(".plan-table-col2-select").chosen()
+ }); 
+</script>>
+-->
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
 
 <style>
 .title {padding-left: 15%; margin-bottom: 2%}
 
-.input-container {padding-left: 15%; max-width: 750px}
+.input-container {padding-left: 15%; max-width: 780px}
 .dev-label {padding-right: 1%; margin-bottom: 8%}
 .dev-input {width: 35%}
 
 .task-input-tabel {table-layout: fixed}
 .task-table-title {margin-bottom: 3%;}
-.task-table-col1 {width: 80%;}
-.task-table-col2 {margin-left: 1%; width: 60%;}
+.task-table-col1 {width: 73%;}
+.task-table-col2 {margin-left: 0%; width: 60%;}
 .task-table-col3{float: right;  margin-bottom: 3%; position: relative; right: 0%; width: 0px}
 .btn-default.task-add{float: right; margin-right: 5%; margin-bottom: 3%}
 
@@ -104,6 +128,7 @@
 .btn-default.plan-add{float: right; margin-right: 5%; margin-bottom: 3%}
 .plan-table-col1{width: 90%; margin-right: 0px}
 .plan-table-col2{width: 155px; margin-right: 20px}
+.plan-table-col2-select{width: 155px; margin-right: 20px;}
 .plan-table-col3{float: right;  margin-bottom: 3%; margin-left:1%; position: relative; right: 0%; width: 0px}
 
 .btn-success {float: right; margin-top: 3%; margin-right: 5%;}

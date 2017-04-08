@@ -3,7 +3,7 @@ from flask import Flask, render_template, flash, redirect, url_for, request, Mar
 from flask_wtf import FlaskForm
 from wtforms import FieldList
 from wtforms import Form as NoCsrfForm
-from wtforms.fields import StringField, FormField, SubmitField, IntegerField, SelectField
+from wtforms.fields import StringField, FormField, SubmitField, IntegerField, SelectField, SelectMultipleField
 from wtforms.validators import DataRequired, NumberRange
 from datetime import date, timedelta
 import gspread
@@ -16,7 +16,10 @@ with open('signer.key', 'r') as f:
 
 with open('slack_call.key', 'r') as f:
     SLACK_CALL_TOKEN = unicode(f.read().rstrip())
-    
+
+with open('slackbot.auth', 'r') as f:
+    SLACK_AUTH_TOKEN = f.read().rstrip()
+
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
@@ -25,19 +28,25 @@ YESTERDAY = (date.today()-timedelta(1)).strftime('%m-%d-%Y')
 
 OPTIONS = [(1,"Very bad"),(2,"No good"),(3,"OK"),(4,"Above expected"),(5,"Supercool")]
 
-#def get_slack_user_choices():
-#    with open('slack.auth', 'r') as f:
-#        SLACK_AUTH_TOKEN = f.read().rstrip()
-#    sc = SlackClient(SLACK_AUTH_TOKEN)
-#
-#    slack_users = sc.api_call("users.list")
-#    slack_usernames = [u["name"] for u in slack_users["members"]]
-#    global slack_usernames_choices
-#    slack_usernames_choices = []
-#    for s in range(len(slack_usernames)):
-#        slack_usernames_choices.append((s,slack_usernames[s]))
-#    #print slack_usernames_choices
-#    return slack_usernames_choices
+scope = ['https://spreadsheets.google.com/feeds']
+
+credentials = ServiceAccountCredentials.from_json_keyfile_name('google_credentials.json', scope)
+gc = gspread.authorize(credentials)
+with open('google_spreadsheet.name', 'r') as f:
+    SPREADSHEET = f.read().rstrip()
+
+wks = gc.open(SPREADSHEET)
+
+sc = SlackClient(SLACK_AUTH_TOKEN)   
+
+def get_slack_user_choices():
+
+    slack_users = sc.api_call("users.list")
+    slack_usernames = [u["name"] for u in slack_users["members"]]
+    slack_usernames_choices = []
+    for s in range(len(slack_usernames)):
+        slack_usernames_choices.append((s,slack_usernames[s]))
+    return slack_usernames_choices
 
 def sign_string(instring):
     s = Signer(SECRET_KEY)
@@ -73,7 +82,7 @@ class TaskForm(NoCsrfForm):
 
 class PlanForm(NoCsrfForm):
     plan_name = StringField('Plan name', validators=[DataRequired()])
-    contacts = StringField('Contact persons')
+    contacts = SelectMultipleField('Contact persons', choices=get_slack_user_choices(), coerce=int)#StringField('Contact persons')
 
 
 class CombinedForm(FlaskForm):
@@ -85,6 +94,9 @@ class CombinedForm(FlaskForm):
     evaluation = SelectField('Self evaluation', coerce=int, choices=[(1,"Very bad"),(2,"No good"),(3,"OK"),(4,"Above expected"),(5,"Supercool")], default=3, validators = [DataRequired()])
 
     plans = FieldList(FormField(PlanForm, default=lambda: Plan()))
+    
+    #TODO: integrate Chosen.js
+    #WARN: Manual include of JS file and call on selected class worked, but broke the row add script from page.js 
 
     submit = SubmitField('Submit')
 
@@ -111,19 +123,11 @@ def save_plans_and_discussion_requests(form):
         row = [CURRENT_DATE,form.dev_name.data,req["plan_name"]]
         planned_tasks.append_row(row)
 
-        if "," in req["contacts"]: 
-            splitted = req["contacts"].split(",")
-        elif " " in req["contacts"]:
-            splitted = req["contacts"].split(" ")
-        else:
-            splitted = req["contacts"]
-
-        if isinstance(splitted, basestring) and splitted != "":
-            row = [CURRENT_DATE,form.dev_name.data,req["plan_name"],splitted.replace(" ", "")]
-            discussion_requests.append_row(row)
-        else:
-            for individual in splitted:
-                row = [CURRENT_DATE,form.dev_name.data,req["plan_name"],individual.replace(" ", "")]
+        slack_usernames_choices =dict(get_slack_user_choices())
+        #print req["contacts"]
+        if req["contacts"] != []:
+            for individual in req["contacts"]:
+                row = [CURRENT_DATE,form.dev_name.data,req["plan_name"],"@"+str(slack_usernames_choices[individual])]
                 discussion_requests.append_row(row)
     return
 
@@ -199,14 +203,5 @@ def slack_checkin():
     return jsonify(resp)#Markup('Hello bello @%s!') % slack_username
 
 if __name__ == '__main__':
-
-    scope = ['https://spreadsheets.google.com/feeds']
-
-    credentials = ServiceAccountCredentials.from_json_keyfile_name('google_credentials.json', scope)
-    gc = gspread.authorize(credentials)
-    with open('google_spreadsheet.name', 'r') as f:
-        SPREADSHEET = f.read().rstrip()
-
-    wks = gc.open(SPREADSHEET)
 
     app.run(debug=False)
