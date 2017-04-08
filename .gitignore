@@ -1,1 +1,6 @@
 *.json
+*.key
+*.auth
+*.unneeded
+*.name
+

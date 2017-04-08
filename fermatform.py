@@ -68,7 +68,7 @@ def save_done_tasks(form):
         done_tasks.append_row(row)
     return
 
-def save_discussion_requests(form):
+def save_plans_and_discussion_requests(form):
     discussion_requests = wks.worksheet("Discussion requests")
     planned_tasks = wks.worksheet("Planned tasks")
 
