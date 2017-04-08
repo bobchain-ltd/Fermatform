@@ -9,4 +9,13 @@ channels = sc.api_call(
   exclude_archived=1
 )
 
-print channels
+for c in channels["channels"]:
+	print c["name_normalized"]," ",c["id"]
+	print " "
+
+
+users=sc.api_call("users.list")
+
+for u in users["members"]:
+	print u["name"]
+	print " "
