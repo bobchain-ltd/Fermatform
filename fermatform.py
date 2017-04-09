@@ -11,6 +11,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 from slackclient import SlackClient
 from itsdangerous import Signer
 
+# ------------- Keys, credentials and configs --------------------
+
 with open('signer.key', 'r') as f:
     SECRET_KEY = f.read().rstrip()
 
@@ -20,8 +22,6 @@ with open('slack_call.key', 'r') as f:
 with open('slackbot.auth', 'r') as f:
     SLACK_AUTH_TOKEN = f.read().rstrip()
 
-app = Flask(__name__)
-app.secret_key = SECRET_KEY
 
 CURRENT_DATE = date.today().strftime('%m-%d-%Y')
 YESTERDAY = (date.today()-timedelta(1)).strftime('%m-%d-%Y')
@@ -31,27 +31,30 @@ OPTIONS = [(1,"Very bad"),(2,"No good"),(3,"OK"),(4,"Above expected"),(5,"Superc
 scope = ['https://spreadsheets.google.com/feeds']
 
 credentials = ServiceAccountCredentials.from_json_keyfile_name('google_credentials.json', scope)
-gc = gspread.authorize(credentials)
+
+with open('slack_target_channel.name', 'r') as f:
+    SLACK_TARGET_CHANNEL = f.read().rstrip()
 
 with open('google_spreadsheet.name', 'r') as f:
     SPREADSHEET = f.read().rstrip()
+
+
+# ------------------ Accessors and connections ----------------
+
+gc = gspread.authorize(credentials)
 
 wks = gc.open(SPREADSHEET)
 
 sc = SlackClient(SLACK_AUTH_TOKEN)   
 
-with open('slack_target_channel.name', 'r') as f:
-    SLACK_TARGET_CHANNEL = f.read().rstrip()
+
+# ------------------ Flask app init -------------------------
+
+app = Flask(__name__)
+app.secret_key = SECRET_KEY
 
 
-def get_slack_user_choices():
-
-    slack_users = sc.api_call("users.list")
-    slack_usernames = [u["name"] for u in slack_users["members"]]
-    slack_usernames_choices = []
-    for s in range(len(slack_usernames)):
-        slack_usernames_choices.append((s,slack_usernames[s]))
-    return slack_usernames_choices
+# ----------------- String signing functions ----------------
 
 def sign_string(instring):
     s = Signer(SECRET_KEY)
@@ -65,45 +68,8 @@ def unsign_string(instring):
     except:
         return False
 
-class Checkin():
-    dev_name = ""
-    tasks = ""
-    evaluation = ""
-    plans = ""
 
-
-class Task():
-    task_name = ""
-    duration = 0
-
-class Plan():
-    plan_name = ""
-    contacts = ""
-    
-
-class TaskForm(NoCsrfForm):
-    task_name = StringField('Task name', validators=[DataRequired()])
-    duration = IntegerField('Duration of the task', validators=[DataRequired(), NumberRange(min=1, max=24)])
-
-class PlanForm(NoCsrfForm):
-    plan_name = StringField('Plan name', validators=[DataRequired()])
-    contacts = SelectMultipleField('Contact persons', choices=get_slack_user_choices(), coerce=int)#StringField('Contact persons')
-
-
-class CombinedForm(FlaskForm):
-    dev_name = StringField('My name / nick', validators=[DataRequired()])
-    #dev_name = SelectField('My name / nick', choices=get_slack_user_choices(), validators = [DataRequired()])
-
-    tasks = FieldList(FormField(TaskForm, default=lambda: Task()))
-    
-    evaluation = SelectField('Self evaluation', coerce=int, choices=[(1,"Very bad"),(2,"No good"),(3,"OK"),(4,"Above expected"),(5,"Supercool")], default=3, validators = [DataRequired()])
-
-    plans = FieldList(FormField(PlanForm, default=lambda: Plan()))
-    
-    #TODO: integrate Chosen.js
-    #WARN: Manual include of JS file and call on selected class worked, but broke the row add script from page.js 
-
-    submit = SubmitField('Submit')
+# --------------------- Google spreadsheet functions ---------------
 
 def save_the_day(form):
     days = wks.worksheet("Days")
@@ -142,12 +108,29 @@ def save_to_google(form):
     save_plans_and_discussion_requests(form)
     return
 
-def post_checkin_to_channel(form):
+
+# ----------------- Slack posting and helper functions ------------------
+
+def get_slack_user_choices():
+
     slack_users = sc.api_call("users.list")
+    slack_usernames = [u["name"] for u in slack_users["members"]]
+    slack_usernames_choices = []
+    for s in range(len(slack_usernames)):
+        slack_usernames_choices.append((s,slack_usernames[s]))
+    return slack_usernames_choices
+
+def get_slack_userobject(user_name):
+    slack_users = sc.api_call("users.list")
+    user_object = (item for item in slack_users["members"] if item["name"] == user_name).next()
+
     #print slack_users["members"][0]['name']
+    return user_object
+
+def post_checkin_to_channel(form):
     #print form.dev_name.data
-    
-    slack_user = (item for item in slack_users["members"] if item["name"] == form.dev_name.data).next()
+    slack_user = get_slack_userobject(form.dev_name.data)
+
     #print slack_user["profile"]["image_24"]
     feeling = (item for item in OPTIONS if item[0] == form.evaluation.data).next()
     print form.evaluation.data
@@ -230,21 +213,145 @@ def post_checkin_to_channel(form):
         ]) 
     return
 
-def create_channel_discussions(form):
-    #https://api.slack.com/methods/channels.create
-    # let slack modify the channel name
+def create_channel(channel_name):
 
-    #https://api.slack.com/methods/channels.join
-    #https://api.slack.com/methods/channels.invite
-    #https://api.slack.com/methods/channels.setPurpose
-    #https://api.slack.com/methods/channels.setTopic
-    #notify users about /archive in the topic desctiption
+    # https://api.slack.com/methods/channels.create
+    # let slack modify the channel name
+            
+    response = sc.api_call(
+      "channels.create",
+      name=channel_name,
+      validate=False)
+
+    channel_id = response["channel"]["id"]
+
+    return channel_id
+
+def set_channel_purpose_and_topic(channel_id, plan_name, originator_name):
+
+    # set topic
+    # https://api.slack.com/methods/channels.setTopic
+    response = sc.api_call(
+      "channels.setTopic",
+      channel=channel_id,
+      topic=plan_name)
+
+    # set purpose
+    # https://api.slack.com/methods/channels.setPurpose
+    # notify users about /archive in the topic desctiption
+    purpose_text = "@" + originator_name + " plans to work on " + plan_name + " today, and feels the need to discuss it. \n Please cooperate with him to help the work! \n If you think the discussion is complete, and you no longer need the channel, please use /archive to close the channel! Thenks!"
+
+    response = sc.api_call(
+      "channels.setPurpose",
+      channel=channel_id,
+      purpose=purpose_text)
+    
+    return
+
+def post_to_start(channel_id):
+
+    sc.api_call(
+      "chat.postMessage",
+      channel=channel_id,
+      text="Feel free to discuss!")
+
+    return
+
+def join_channel(channel_id):
+
+    # https://api.slack.com/methods/channels.join
+    
+    response = sc.api_call(
+      "channels.join",
+      name=channel_id)
+
+    return
+          
+def invite_user_to_channel(user_name,channel_id):
+    slack_user = get_slack_userobject(user_name)
+
+    response = sc.api_call(
+      "channels.invite",
+      channel_id=channel_id,
+      user=slack_user['id'])
+
+    return  
+
+def create_channel_discussions(form):
+
+    for req in form.plans.data:
+
+        slack_usernames_choices =dict(get_slack_user_choices())
+        #print req["contacts"]
+        if req["contacts"] != []:
+            channel_id = create_channel(req["plan_name"])
+            
+            set_channel_purpose_and_topic(channel_id, req["plan_name"], form.dev_name.data)
+            
+            join_channel(channel_id)
+
+            #invite original poster
+            invite_user_to_channel(channel_id, form.dev_name.data)
+
+            for individual in req["contacts"]:
+                # invite marked individual
+                invite_user_to_channel(channel_id, slack_usernames_choices[individual])
+            
+
+            post_to_start(channel_id)
     return
 
 def post_to_slack(form):
     post_checkin_to_channel(form)
     create_channel_discussions(form)
     return
+
+    
+# ------------------- Flask form elements ------------------
+
+class Checkin():
+    dev_name = ""
+    tasks = ""
+    evaluation = ""
+    plans = ""
+
+
+class Task():
+    task_name = ""
+    duration = 0
+
+class Plan():
+    plan_name = ""
+    contacts = ""
+    
+
+class TaskForm(NoCsrfForm):
+    task_name = StringField('Task name', validators=[DataRequired()])
+    duration = IntegerField('Duration of the task', validators=[DataRequired(), NumberRange(min=1, max=24)])
+
+class PlanForm(NoCsrfForm):
+    plan_name = StringField('Plan name', validators=[DataRequired()])
+    contacts = SelectMultipleField('Contact persons', choices=get_slack_user_choices(), coerce=int)#StringField('Contact persons')
+
+
+class CombinedForm(FlaskForm):
+    dev_name = StringField('My name / nick', validators=[DataRequired()])
+    #dev_name = SelectField('My name / nick', choices=get_slack_user_choices(), validators = [DataRequired()])
+
+    tasks = FieldList(FormField(TaskForm, default=lambda: Task()))
+    
+    evaluation = SelectField('Self evaluation', coerce=int, choices=[(1,"Very bad"),(2,"No good"),(3,"OK"),(4,"Above expected"),(5,"Supercool")], default=3, validators = [DataRequired()])
+
+    plans = FieldList(FormField(PlanForm, default=lambda: Plan()))
+    
+    #TODO: integrate Chosen.js
+    #WARN: Manual include of JS file and call on selected class worked, but broke the row add script from page.js 
+
+    submit = SubmitField('Submit')
+
+
+
+# --------------------- Flask routes and logic -------------------------
 
 @app.route('/thanks', methods=['GET',])
 def thanks():
@@ -311,6 +418,10 @@ def slack_checkin():
                     ]
     }
     return jsonify(resp)
+
+
+
+# ------------------ Main app start ------------------
 
 if __name__ == '__main__':
 
