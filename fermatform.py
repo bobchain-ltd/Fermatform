@@ -11,6 +11,14 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 SECRET_KEY = 'a really not so random string'
 
+scope = ['https://spreadsheets.google.com/feeds']
+
+credentials = ServiceAccountCredentials.from_json_keyfile_name('f.json', scope)
+
+gc = gspread.authorize(credentials)
+
+wks = gc.open("Checkins")
+
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
@@ -126,13 +134,5 @@ def index():
 
 
 if __name__ == '__main__':
-
-    scope = ['https://spreadsheets.google.com/feeds']
-
-    credentials = ServiceAccountCredentials.from_json_keyfile_name('f.json', scope)
-
-    gc = gspread.authorize(credentials)
-
-    wks = gc.open("Checkins")
 
     app.run(debug=True)#, port=5000)
