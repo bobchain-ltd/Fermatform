@@ -15,9 +15,6 @@ scope = ['https://spreadsheets.google.com/feeds']
 
 credentials = ServiceAccountCredentials.from_json_keyfile_name('f.json', scope)
 
-gc = gspread.authorize(credentials)
-
-wks = gc.open("Checkins")
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -26,6 +23,12 @@ CURRENT_DATE = date.today().strftime('%m-%d-%Y')
 YESTERDAY = (date.today()-timedelta(1)).strftime('%m-%d-%Y')
 
 OPTIONS = [(1,"Very bad"),(2,"No good"),(3,"OK"),(4,"Above expected"),(5,"Supercool")]
+
+def auth_google(credentials):
+    gc = gspread.authorize(credentials)
+
+    wks = gc.open("Checkins")
+    return wks
 
 class Checkin():
     dev_name = ""
@@ -63,20 +66,27 @@ class CombinedForm(FlaskForm):
     submit = SubmitField('Submit')
 
 def save_the_day(form):
+    wks = auth_google(credentials)
     days = wks.worksheet("Days")
     row=[YESTERDAY,form.dev_name.data,form.evaluation.data]
     days.append_row(row)
+    del wks
     return
 
 def save_done_tasks(form):
+    wks = auth_google(credentials)
+
     done_tasks = wks.worksheet("Done tasks")
 
     for  task in form.tasks.data:
         row=[YESTERDAY,form.dev_name.data,task["task_name"],task["duration"]]
         done_tasks.append_row(row)
+    del wks
     return
 
 def save_plans_and_discussion_requests(form):
+    wks = auth_google(credentials)
+
     discussion_requests = wks.worksheet("Discussion requests")
     planned_tasks = wks.worksheet("Planned tasks")
 
@@ -99,6 +109,7 @@ def save_plans_and_discussion_requests(form):
             for individual in splitted:
                 row=[CURRENT_DATE,form.dev_name.data,req["plan_name"],individual.replace(" ", "")]
                 discussion_requests.append_row(row)
+    del wks
     return
 
 def save_to_google(form):
