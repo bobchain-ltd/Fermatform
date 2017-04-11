@@ -41,10 +41,6 @@ with open('google_spreadsheet.name', 'r') as f:
 
 # ------------------ Accessors and connections ----------------
 
-gc = gspread.authorize(credentials)
-
-wks = gc.open(SPREADSHEET)
-
 sc = SlackClient(SLACK_AUTH_TOKEN)   
 
 
@@ -71,21 +67,26 @@ def unsign_string(instring):
 
 # --------------------- Google spreadsheet functions ---------------
 
-def save_the_day(form):
+def save_the_day(form, wks):
+    gc = gspread.authorize(credentials)
+    wks = gc.open(SPREADSHEET)
+
     days = wks.worksheet("Days")
     row = [YESTERDAY,form.dev_name.data,form.evaluation.data]
     days.append_row(row)
+
     return
 
-def save_done_tasks(form):
+def save_done_tasks(form, wks):
     done_tasks = wks.worksheet("Done tasks")
 
     for  task in form.tasks.data:
         row = [YESTERDAY,form.dev_name.data,task["task_name"],task["duration"]]
         done_tasks.append_row(row)
+
     return
 
-def save_plans_and_discussion_requests(form):
+def save_plans_and_discussion_requests(form, wks):
     discussion_requests = wks.worksheet("Discussion requests")
     planned_tasks = wks.worksheet("Planned tasks")
 
@@ -103,9 +104,14 @@ def save_plans_and_discussion_requests(form):
     return
 
 def save_to_google(form):
-    save_the_day(form)
-    save_done_tasks(form)
-    save_plans_and_discussion_requests(form)
+    gc = gspread.authorize(credentials)
+    wks = gc.open(SPREADSHEET)
+
+    save_the_day(form, wks)
+    save_done_tasks(form, wks)
+    save_plans_and_discussion_requests(form, wks)
+    del wks
+    del gc
     return
 
 
