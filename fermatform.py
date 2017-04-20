@@ -212,8 +212,8 @@ def post_checkin_to_channel(form):
                     "short": False
                 }
                 ],
-                "footer": "Fermat.org",
-                "footer_icon": "http://www.fermat.org/wp-content/uploads/2016/05/cropped-lcono_fermat_512x512.png"
+                "footer": "Bobchain Ltd.",
+                "footer_icon": "https://i1.wp.com/mfsys.com.pk/wp-content/uploads/2016/06/blockchain.info-logo.jpg?resize=256%2C256"
         },
 
         ]) 
@@ -416,8 +416,8 @@ def slack_checkin():
         {
             "title": "Daily Checkin",
             "title_link": link,
-            "author_name": "Fermat.org",
-            "author_icon": "http://www.fermat.org/wp-content/uploads/2016/05/cropped-lcono_fermat_512x512-32x32.png",
+            "author_name": "Bobchain Ltd.",
+            "author_icon": "https://i1.wp.com/mfsys.com.pk/wp-content/uploads/2016/06/blockchain.info-logo.jpg?resize=256%2C256",
             "color": "good"
 
         }
