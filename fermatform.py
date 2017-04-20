@@ -10,6 +10,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from slackclient import SlackClient
 from itsdangerous import Signer
+import time
 
 # ------------- Keys, credentials and configs --------------------
 
@@ -20,7 +21,10 @@ with open('slack_call.key', 'r') as f:
     SLACK_CALL_TOKEN = unicode(f.read().rstrip())
 
 with open('slackbot.auth', 'r') as f:
-    SLACK_AUTH_TOKEN = f.read().rstrip()
+    SLACK_BOT_AUTH_TOKEN = f.read().rstrip()
+
+with open('slackwebhook.auth', 'r') as f:
+    SLACK_APP_AUTH_TOKEN = f.read().rstrip()
 
 
 CURRENT_DATE = date.today().strftime('%m-%d-%Y')
@@ -41,8 +45,9 @@ with open('google_spreadsheet.name', 'r') as f:
 
 # ------------------ Accessors and connections ----------------
 
-sc = SlackClient(SLACK_AUTH_TOKEN)   
-
+scbot = SlackClient(SLACK_BOT_AUTH_TOKEN)   
+scapp = SlackClient(SLACK_APP_AUTH_TOKEN)
+#FIXME refact this to reconnect
 
 # ------------------ Flask app init -------------------------
 
@@ -119,7 +124,7 @@ def save_to_google(form):
 
 def get_slack_user_choices():
 
-    slack_users = sc.api_call("users.list")
+    slack_users = scbot.api_call("users.list")
     slack_usernames = [u["name"] for u in slack_users["members"]]
     slack_usernames_choices = []
     for s in range(len(slack_usernames)):
@@ -127,19 +132,24 @@ def get_slack_user_choices():
     return slack_usernames_choices
 
 def get_slack_userobject(user_name):
-    slack_users = sc.api_call("users.list")
-    user_object = (item for item in slack_users["members"] if item["name"] == user_name).next()
+    print "Calling API as bot to get users list..."
 
+    slack_users = scbot.api_call("users.list")
+    for item in slack_users["members"]:
+        if item["name"] == user_name:
+            user_object = item
+    #user_object = (item for item in slack_users["members"] if item["name"] == user_name).next()
     #print slack_users["members"][0]['name']
     return user_object
 
 def post_checkin_to_channel(form):
+    print "Posting to Slack channel..."
     #print form.dev_name.data
     slack_user = get_slack_userobject(form.dev_name.data)
 
     #print slack_user["profile"]["image_24"]
     feeling = (item for item in OPTIONS if item[0] == form.evaluation.data).next()
-    print form.evaluation.data
+    #print form.evaluation.data
     if form.evaluation.data == 1:
         feeling_color = "danger"
     elif form.evaluation.data == 2:
@@ -164,7 +174,7 @@ def post_checkin_to_channel(form):
     for req in form.plans.data:
         plans_value = plans_value + req["plan_name"] + "\n"
 
-    sc.api_call(
+    scbot.api_call(
       "chat.postMessage",
       channel="#"+SLACK_TARGET_CHANNEL,
       #parse="full",
@@ -224,12 +234,30 @@ def create_channel(channel_name):
     # https://api.slack.com/methods/channels.create
     # let slack modify the channel name
             
-    response = sc.api_call(
-      "channels.create",
+    response = scapp.api_call(
+      "groups.create",
       name=channel_name,
       validate=False)
 
-    channel_id = response["channel"]["id"]
+    # print response
+    
+    if response.get("error","")=="name_taken":
+        response = scapp.api_call(
+            "groups.list",
+            exclude_archived=False
+            )
+        print "Name alredy taken. Unarchiving..."
+        for channel in response["groups"]:
+            print channel["name"]
+            if channel["name"] == channel_name:
+                channel_id = channel["id"]
+
+            response = scapp.api_call(
+                "groups.unarchive",
+                channel_id=channel_id
+            )
+    else: 
+        channel_id = response["group"]["id"]
 
     return channel_id
 
@@ -237,29 +265,31 @@ def set_channel_purpose_and_topic(channel_id, plan_name, originator_name):
 
     # set topic
     # https://api.slack.com/methods/channels.setTopic
-    response = sc.api_call(
-      "channels.setTopic",
+    response = scapp.api_call(
+      "groups.setTopic",
       channel=channel_id,
       topic=plan_name)
 
     # set purpose
     # https://api.slack.com/methods/channels.setPurpose
     # notify users about /archive in the topic desctiption
-    purpose_text = "@" + originator_name + " plans to work on " + plan_name + " today, and feels the need to discuss it. \n Please cooperate with him to help the work! \n If you think the discussion is complete, and you no longer need the channel, please use /archive to close the channel! Thenks!"
+    purpose_text = "@" + originator_name + " plans to work on " + plan_name + " today, and feels the need to discuss it. \n Please cooperate with him to help the work! \n If you think the discussion is complete, please use /archive to close the channel! Thanks!"
 
-    response = sc.api_call(
-      "channels.setPurpose",
+    response = scapp.api_call(
+      "groups.setPurpose",
       channel=channel_id,
       purpose=purpose_text)
-    
+    print "setPurpose response: ",response
     return
 
 def post_to_start(channel_id):
 
-    sc.api_call(
+    scbot.api_call(
       "chat.postMessage",
       channel=channel_id,
-      text="Feel free to discuss!")
+      text="Feel free to discuss!",
+      username="Checkinbot",
+      icon_url="https://i1.wp.com/mfsys.com.pk/wp-content/uploads/2016/06/blockchain.info-logo.jpg?resize=256%2C256")
 
     return
 
@@ -267,47 +297,61 @@ def join_channel(channel_id):
 
     # https://api.slack.com/methods/channels.join
     
-    response = sc.api_call(
+    response = scbot.api_call(
       "channels.join",
       name=channel_id)
 
     return
           
-def invite_user_to_channel(user_name,channel_id):
+def invite_user_to_channel(channel_id, user_name):
     slack_user = get_slack_userobject(user_name)
 
-    response = sc.api_call(
-      "channels.invite",
-      channel_id=channel_id,
-      user=slack_user['id'])
+    print "Inviting user ", slack_user["name"].strip()," to ",channel_id.strip()," ..."
 
+    #print "These are the channels..."
+    #channels = scapp.api_call("groups.list")
+    #for c in channels["groups"]:
+    #    print c["id"]
+    #    if c["id"] == channel_id:
+    #        print "FOUND!!!!!!"
+
+    response = scapp.api_call(
+      "groups.invite",
+      channel=channel_id.strip(),
+      user=slack_user['id'])
+    #print response
     return  
 
 def create_channel_discussions(form):
+
+    print "Creating Slack channels..."
 
     for req in form.plans.data:
 
         slack_usernames_choices =dict(get_slack_user_choices())
         #print req["contacts"]
         if req["contacts"] != []:
+            print "Planned channel name: ",req["plan_name"]
             channel_id = create_channel(req["plan_name"])
-            
-            set_channel_purpose_and_topic(channel_id, req["plan_name"], form.dev_name.data)
-            
-            join_channel(channel_id)
+            print "Channel id: ", channel_id
+            #join_channel(channel_id)
 
             #invite original poster
-            invite_user_to_channel(channel_id, form.dev_name.data)
+            #invite_user_to_channel(channel_id, form.dev_name.data)
+            #invite checkinbot
+            invite_user_to_channel(channel_id, "checkinbot")
 
             for individual in req["contacts"]:
                 # invite marked individual
                 invite_user_to_channel(channel_id, slack_usernames_choices[individual])
             
+            set_channel_purpose_and_topic(channel_id, req["plan_name"], form.dev_name.data)
 
             post_to_start(channel_id)
     return
 
 def post_to_slack(form):
+    print "Executing Slack tasks..."
     post_checkin_to_channel(form)
     create_channel_discussions(form)
     return
@@ -402,6 +446,7 @@ def index():
 def slack_checkin():
     #print request.form
     #print request.url_root
+    #print request.form.getlist("token")[0]
     if request.method!="POST" or request.form.getlist("token")[0]!=SLACK_CALL_TOKEN:
         return redirect(url_for('unauthorized')) 
     
