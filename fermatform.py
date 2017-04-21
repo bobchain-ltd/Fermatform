@@ -184,7 +184,7 @@ def post_checkin_to_channel(form):
         {
             "title": "Daily Checkin",
             #"title_link": "http://google.com",
-            "author_name": slack_user["profile"]["first_name"]+" "+slack_user["profile"]["last_name"]+" @"+slack_user["name"],
+            "author_name": slack_user["profile"].get("first_name","")+" "+slack_user["profile"].get("last_name","")+" @"+slack_user["name"],
             "author_icon": slack_user["profile"]["image_24"],
             "color": "good",
             "text": final_text,
